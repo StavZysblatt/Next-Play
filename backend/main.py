@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from ml.recommend import recommend_hybrid
 import pandas as pd
@@ -12,21 +12,35 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-# Add CORS middleware
-origins = [
-    "http://localhost:3000",  # React default port
-    "http://localhost:5173",  # Vite default port
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:3000",
-]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Manual CORS handling
+@app.middleware("http")
+async def cors_handler(request: Request, call_next):
+    print(f"🔍 Incoming request: {request.method} {request.url}")
+    print(f"🔍 Headers: {dict(request.headers)}")
+
+    # Handle preflight requests
+    if request.method == "OPTIONS":
+        response = Response()
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, DELETE, OPTIONS"
+        )
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        print(f"🔍 Sending OPTIONS response with CORS headers")
+        return response
+
+    # Process normal requests
+    response = await call_next(request)
+
+    # Add CORS headers to all responses
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+
+    print(f"🔍 Response status: {response.status_code}")
+    return response
 
 
 @app.get("/games")
