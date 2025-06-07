@@ -3,7 +3,24 @@ from ml.recommend import recommend_hybrid
 import pandas as pd
 from backend.nextplay_db import get_all_ratings, get_all_games, add_or_update_rating, add_user
 from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Your Vite dev server
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/cors-test")
+def cors_test():
+    response = JSONResponse(content={"message": "CORS manual test"})
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    return response
 
 @app.get("/recommend/{user_id}")
 def recommend(user_id: str, top_n: int = 5):
