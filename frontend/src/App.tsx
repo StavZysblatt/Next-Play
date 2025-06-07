@@ -1,16 +1,112 @@
 import { useState } from "react";
 import './App.css';
 
-
 interface Game {
   game_id: string;
   name: string;
   popularity_score?: number;
   rating?: number;
+  cover_url?: string;
+  genres?: string;
+  description_raw?: string;
+}
+
+// Overlay card (centered popup)
+function GameCardOverlay({
+  game,
+  onClose,
+  showRating = false
+}: {
+  game: Game;
+  onClose: () => void;
+  showRating?: boolean;
+}) {
+  const [showFullDesc, setShowFullDesc] = useState(false);
+  const desc = game.description_raw || "";
+  const shouldTruncate = desc.length > 200 && !showFullDesc;
+
+  return (
+    <div className="overlay-backdrop" onClick={onClose}>
+      <div className="game-card overlay-card expanded" onClick={e => e.stopPropagation()}>
+        <div className="game-card-thumb">
+          {game.cover_url && (
+            <img
+              src={game.cover_url}
+              alt={game.name}
+              className="game-card-img"
+              style={{
+                width: '160px',
+                height: '160px',
+              }}
+            />
+          )}
+        </div>
+        <div className="game-card-info">
+          <div className="game-card-title" style={{ fontSize: "1.26rem" }}>{game.name}</div>
+          <div className="game-card-genres">{game.genres || "No genres"}</div>
+          <div className="game-card-desc" style={{ fontSize: "1.09em" }}>
+            {shouldTruncate ? (
+              <>
+                {desc.slice(0, 200)}...
+                <span
+                  className="game-card-more"
+                  onClick={e => {
+                    e.stopPropagation();
+                    setShowFullDesc(true);
+                  }}
+                >
+                  Show more
+                </span>
+              </>
+            ) : (
+              desc
+            )}
+          </div>
+          {showRating && typeof game.rating === "number" && (
+            <div className="game-card-rating">
+              Rated: {game.rating}
+            </div>
+          )}
+          <button className="overlay-close-btn" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Small grid card (collapsed view)
+function GameCard({
+  game,
+  onClick
+}: {
+  game: Game;
+  onClick: () => void;
+}) {
+  return (
+    <li className="game-card" onClick={onClick}>
+      <div className="game-card-thumb">
+        {game.cover_url && (
+          <img
+            src={game.cover_url}
+            alt={game.name}
+            className="game-card-img"
+            style={{
+              width: '54px',
+              height: '54px',
+            }}
+          />
+        )}
+      </div>
+      <div className="game-card-info">
+        <div className="game-card-title">{game.name}</div>
+      </div>
+    </li>
+  );
 }
 
 export default function App() {
   const [page, setPage] = useState<"home" | "user">("home");
+  const [expandedCard, setExpandedCard] = useState<Game | null>(null);
 
   // --- Popular Games State ---
   const [popular, setPopular] = useState<Game[]>([]);
@@ -66,6 +162,15 @@ export default function App() {
     <div id="main-container">
       <h1>NextPlay</h1>
 
+      {/* Overlay */}
+      {expandedCard && (
+        <GameCardOverlay
+          game={expandedCard}
+          onClose={() => setExpandedCard(null)}
+          showRating={typeof expandedCard.rating === "number"}
+        />
+      )}
+
       {/* Navigation */}
       <nav>
         <button
@@ -88,12 +193,13 @@ export default function App() {
           <h2>Popular Games</h2>
           {popLoading && <p>Loading...</p>}
           {popError && <div className="error">{popError}</div>}
-          <ul>
+          <ul className="game-list" style={{ filter: expandedCard ? "blur(2px)" : undefined, pointerEvents: expandedCard ? "none" : undefined }}>
             {popular.map((game) => (
-              <li key={game.game_id}>
-                <strong>{game.name}</strong> (ID: {game.game_id})
-                {game.popularity_score && <> - Popularity: {game.popularity_score.toFixed(2)}</>}
-              </li>
+              <GameCard
+                key={game.game_id}
+                game={game}
+                onClick={() => setExpandedCard(game)}
+              />
             ))}
           </ul>
         </div>
@@ -115,31 +221,34 @@ export default function App() {
           {userLoading && <p>Loading...</p>}
           {userError && <div className="error">{userError}</div>}
 
-<div className="row-section">
-  <div className="half-card">
-    <h3>Games Played</h3>
-    <ul>
-      {userGames.map(game => (
-        <li key={game.game_id}>
-          <strong>{game.name}</strong>
-          {game.rating && <> (Rated: {game.rating})</>}
-        </li>
-      ))}
-    </ul>
-  </div>
-  <div className="half-card">
-    <h3>Recommendations</h3>
-    <ul>
-      {recommendations.map(game => (
-        <li key={game.game_id}>
-          <strong>{game.name}</strong>
-          {game.popularity_score && <> (Popularity: {game.popularity_score.toFixed(2)})</>}
-        </li>
-      ))}
-    </ul>
-  </div>
-</div>
-
+          <div className="row-section">
+            {/* Games Played */}
+            <div className="half-card">
+              <h3>Games Played</h3>
+              <ul className="game-list" style={{ filter: expandedCard ? "blur(2px)" : undefined, pointerEvents: expandedCard ? "none" : undefined }}>
+                {userGames.map(game => (
+                  <GameCard
+                    key={game.game_id}
+                    game={game}
+                    onClick={() => setExpandedCard(game)}
+                  />
+                ))}
+              </ul>
+            </div>
+            {/* Recommendations */}
+            <div className="half-card">
+              <h3>Recommendations</h3>
+              <ul className="game-list" style={{ filter: expandedCard ? "blur(2px)" : undefined, pointerEvents: expandedCard ? "none" : undefined }}>
+                {recommendations.map((game) => (
+                  <GameCard
+                    key={game.game_id}
+                    game={game}
+                    onClick={() => setExpandedCard(game)}
+                  />
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </div>

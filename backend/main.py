@@ -25,23 +25,31 @@ def cors_test():
 @app.get("/recommend/{user_id}")
 def recommend(user_id: str, top_n: int = 5):
     results = recommend_hybrid(user_id, top_n=top_n)
-    # Convert results DataFrame to list of dicts for JSON response
-    return results.to_dict(orient="records")
+    all_games = pd.DataFrame(get_all_games())
+
+    # Include description_raw in the merge
+    merged = results.merge(
+        all_games[['game_id', 'name', 'cover_url', 'genres', 'description_raw']],
+        on='name', how='left'
+    )
+    merged = merged[['game_id', 'name', 'like_prob', 'cover_url', 'genres', 'description_raw']]
+
+    return merged.to_dict(orient="records")
 
 @app.get("/popular")
 def get_popular_games(top_n: int = 5):
     games = pd.DataFrame(get_all_games())
     popular_games = games.sort_values("popularity_score", ascending=False).head(top_n)
-    return popular_games[['game_id', 'name', 'popularity_score']].to_dict(orient="records")
+    return popular_games[['game_id', 'name', 'popularity_score','cover_url', 'genres', 'description_raw']].to_dict(orient="records")
 
 @app.get("/user/{user_id}/games")
 def get_user_games(user_id: str):
     ratings = pd.DataFrame(get_all_ratings())
     games = pd.DataFrame(get_all_games())
     user_games = ratings[ratings['user_id'] == user_id]
-    # Merge with game info
+    # Merge with game info, include description_raw
     merged = user_games.merge(games, left_on='game_id', right_on='game_id')
-    return merged[['game_id', 'name', 'rating']].to_dict(orient="records")
+    return merged[['game_id', 'name', 'rating','cover_url', 'genres', 'description_raw']].to_dict(orient="records")
 
 @app.get("/user/{user_id}/liked")
 def get_user_liked_games(user_id: str, like_threshold: float = 3.0):
@@ -49,7 +57,7 @@ def get_user_liked_games(user_id: str, like_threshold: float = 3.0):
     games = pd.DataFrame(get_all_games())
     liked_games = ratings[(ratings['user_id'] == user_id) & (ratings['rating'] >= like_threshold)]
     merged = liked_games.merge(games, left_on='game_id', right_on='game_id')
-    return merged[['game_id', 'name', 'rating']].to_dict(orient="records")
+    return merged[['game_id', 'name', 'rating','cover_url', 'genres', 'description_raw']].to_dict(orient="records")
 
 class LikeGameRequest(BaseModel):
     game_id: int
@@ -76,5 +84,8 @@ def signup(req: SignupRequest):
     user_id = add_user(req.name)
     return {"status": "success", "user_id": user_id, "name": req.name}
 
-
-
+@app.get("/games")
+def get_all_games_endpoint():
+    games = pd.DataFrame(get_all_games())
+    # Already returns description_raw!
+    return games[['game_id', 'name', 'cover_url', 'genres', 'description_raw']].to_dict(orient="records")
